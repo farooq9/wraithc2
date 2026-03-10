@@ -3,8 +3,7 @@
 > **AI-powered post-exploitation framework — GitHub Gist dead-drop transport, no open port required.**
 
 ```markdown
-![Python]
-(https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white)
 ```
 ---
 
