@@ -12,7 +12,6 @@
 > - Hooks the keyboard system-wide (keylogger)
 > - Can lock out Task Manager, prevent admin-elevated processes, and interfere with UAC prompts if instructed recklessly
 > - Polls an external server every few seconds — this runs silently in the background with no visible window
-> - Is intentionally difficult to detect and remove without the cleanup steps listed below
 >
 > **Always deploy inside an isolated VM with no snapshots shared with your host, network-isolated from your real environment.**
 > Running it on your daily-use machine will compromise that machine.
