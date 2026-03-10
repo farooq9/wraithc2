@@ -190,8 +190,3 @@ This software is intended for:
 Computer Misuse Act (UK), and equivalent laws worldwide.
 The authors accept no responsibility for misuse.
 
----
-
-## Detailed Guide
-
-See [README_GUIDE.md](README_GUIDE.md) for full setup, server deployment, troubleshooting and removal instructions.
