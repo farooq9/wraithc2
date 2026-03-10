@@ -1,0 +1,47 @@
+﻿# Compiled agent + build artifacts
+dist/
+build/
+*.spec
+
+# Logs
+wraith_server.log
+*.log
+
+# Database (contains agent history / target data — never commit)
+*.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Results / exfil output
+wr_out/
+incoming/
+outgoing/
+
+# Sensitive config (keep config.py since it only has placeholders now)
+# If you put real keys in config.py, uncomment the next line:
+# config.py
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Temp files
+*.tmp
+wr_*
+
+# prompt payload (may contain target specific data)
+prompt.txt
+
+# Blue team / red team exercise docs — do not publish
+BLUETEAM_DETECTION.md
+CHANGES.md
