@@ -158,7 +158,6 @@ wraithc2/
   compile.bat        One-click agent compiler (Windows)
   requirements.txt   Python dependencies
   README.md          This file
-  README_GUIDE.md    Detailed setup and operations guide
 ```
 
 ---
