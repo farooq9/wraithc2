@@ -10,7 +10,7 @@
 > Once executed, the agent:
 > - Installs registry persistence and a scheduled task that survive reboots
 > - Hooks the keyboard system-wide (keylogger)
-> - Can lock out Task Manager, prevent admin-elevated processes, and interfere with UAC prompts
+> - Can lock out Task Manager, prevent admin-elevated processes, and interfere with UAC prompts if instructed recklessly
 > - Polls an external server every few seconds — this runs silently in the background with no visible window
 > - Is intentionally difficult to detect and remove without the cleanup steps listed below
 >
