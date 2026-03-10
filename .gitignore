@@ -41,7 +41,3 @@ wr_*
 
 # prompt payload (may contain target specific data)
 prompt.txt
-
-# Blue team / red team exercise docs — do not publish
-BLUETEAM_DETECTION.md
-CHANGES.md
