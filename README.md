@@ -2,6 +2,24 @@
 
 > **AI-powered post-exploitation framework — GitHub Gist dead-drop transport, no open port required.**
 
+---
+
+> [!WARNING]
+> **DO NOT run `wraith.exe` or `wraith.py` on your own machine or any machine you are not prepared to fully reimage.**
+>
+> Once executed, the agent:
+> - Installs registry persistence and a scheduled task that survive reboots
+> - Hooks the keyboard system-wide (keylogger)
+> - Can lock out Task Manager, prevent admin-elevated processes, and interfere with UAC prompts
+> - Polls an external server every few seconds — this runs silently in the background with no visible window
+> - Is intentionally difficult to detect and remove without the cleanup steps listed below
+>
+> **Always deploy inside an isolated VM with no snapshots shared with your host, network-isolated from your real environment.**
+> Running it on your daily-use machine will compromise that machine.
+> The author takes no responsibility for self-inflicted compromise.
+
+---
+
 WraithC2 lets you control a Windows agent using plain English.
 Commands travel through a private GitHub Gist, so there is no listening server and no exposed IP.
 An LLM (NVIDIA NIM, OpenRouter, Anthropic, or Groq — your choice) interprets every instruction and
