@@ -57,7 +57,7 @@ No port forwarding.  No VPS.  No firewall rule.  Just a free GitHub account.
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/wraithc2
+git clone https://github.com/farooq9/wraithc2
 cd wraithc2
 python -m venv .venv
 .venv\Scripts\activate          # Windows
