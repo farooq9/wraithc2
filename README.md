@@ -1,5 +1,13 @@
 ﻿# WraithC2
 
+```markdown
+![Python](https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white)
+![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows)
+![License](https://img.shields.io/badge/license-MIT-brightgreen)
+![Stars](https://img.shields.io/github/stars/farooq9/wraithc2?style=social)
+![Last Commit](https://img.shields.io/github/last-commit/farooq9/wraithc2)
+```
+
 > **AI-powered post-exploitation framework — GitHub Gist dead-drop transport, no open port required.**
 
 ---
