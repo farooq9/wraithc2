@@ -195,6 +195,8 @@ pyinstaller      Compile to EXE
 Full list: [requirements.txt](requirements.txt)
 
 ---
+[!Demo]
+https://github.com/user-attachments/assets/bdfcdf34-76a3-40f4-a4f5-1639f13bca7f
 
 ## Legal Notice
 
