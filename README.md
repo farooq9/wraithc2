@@ -195,9 +195,7 @@ pyinstaller      Compile to EXE
 Full list: [requirements.txt](requirements.txt)
 
 ---
-> [!TIP]
-> 🎥 **Demo**
-><video src="https://github.com/user-attachments/assets/bdfcdf34-76a3-40f4-a4f5-1639f13bca7f" width="320"></video>
+**Demo**
 
 <p align="center">
   <video width="320" controls>
