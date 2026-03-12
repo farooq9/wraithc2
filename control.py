@@ -412,16 +412,17 @@ def run():
     try:
         files   = gist_read()
         clients = list_clients(files)
+        if clients:
+            print(f'\n  Online agents ({len(clients)}):')
+            for h, ts in clients:
+                print(f'    {h:30s}  last seen: {ts}')
+        else:
+            print('  No agents have checked in yet.')
     except Exception as e:
-        print(f'  [ERROR] Cannot reach Gist: {e}')
-        sys.exit(1)
-
-    if clients:
-        print(f'\n  Online agents ({len(clients)}):')
-        for h, ts in clients:
-            print(f'    {h:30s}  last seen: {ts}')
-    else:
-        print('  No agents have checked in yet.')
+        print(f'  [WARNING] Cannot reach Gist: {e}')
+        print('  Run  setup  to configure a new Gist ID, or edit config.py directly.')
+        files   = {}
+        clients = []
 
     print('\n  Type  help  for command reference.\n')
 
