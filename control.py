@@ -20,7 +20,8 @@ Commands at the OP prompt:
   clear all                     Wipe all pending results.
   setup                         Interactive wizard: generate config.py with your
                                 API keys, Gist ID, and AI model settings.
-  build                         Show instructions for compiling wraith.exe.
+  compile                       Run compile.bat and stream output here.
+  build                         Show manual compile instructions.
   help                          Show this message.
   exit / quit                   Exit the operator CLI.
 
@@ -364,6 +365,43 @@ PERSISTENCE_METHODS = ['registry', 'scheduled_task', 'wmi']
     except Exception as e:
         print(f'\n  [!] Failed to write config.py: {e}')
 
+def _run_compile():
+    bat = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'compile.bat')
+    if not os.path.isfile(bat):
+        print('  [!] compile.bat not found in the same folder as control.py.')
+        return
+    print(f'  [compile] Running compile.bat ...')
+    print('  ' + '=' * 60)
+    import subprocess
+    try:
+        proc = subprocess.Popen(
+            ['cmd.exe', '/c', bat],
+            cwd=os.path.dirname(bat),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+        )
+        for line in proc.stdout:
+            stripped = line.rstrip()
+            # suppress blank lines and PyInstaller noise, print everything else
+            if stripped:
+                print(f'  {stripped}')
+        proc.wait()
+        print('  ' + '=' * 60)
+        if proc.returncode == 0:
+            dist = os.path.join(os.path.dirname(bat), 'dist', 'wraith.exe')
+            if os.path.isfile(dist):
+                size_mb = os.path.getsize(dist) / (1024 * 1024)
+                print(f'  [+] SUCCESS  ->  dist\\wraith.exe  ({size_mb:.1f} MB)')
+            else:
+                print('  [+] compile.bat exited OK (output file not found at dist\\wraith.exe)')
+        else:
+            print(f'  [!] Compilation FAILED (exit code {proc.returncode}). See output above.')
+    except Exception as e:
+        print(f'  [!] Could not run compile.bat: {e}')
+
 BUILD_INSTRUCTIONS = '''
   --- Compiling wraith.exe ---
 
@@ -448,7 +486,10 @@ def run():
             _run_setup_wizard()
             cfg = _safe_import_config()
 
-        elif low in ('build', 'compile', 'build-client'):
+        elif low == 'compile':
+            _run_compile()
+
+        elif low in ('build', 'build-client'):
             print(BUILD_INSTRUCTIONS)
 
         elif low == 'list':
